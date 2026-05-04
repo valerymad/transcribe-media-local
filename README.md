@@ -4,33 +4,42 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill for transc
 
 Works **fully offline** after one-time model download. Supports 100+ languages.
 
+## Requirements
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- Python 3.8+
+- ffmpeg
+
 ## Installation
 
-Copy the skill directory into your Claude Code skills folder:
+### 1. Clone the skill into your Claude Code skills folder
 
 ```bash
-cp -r transcribe-media-local ~/.claude/skills/transcribe-media-local
+git clone https://github.com/valerymad/transcribe-media-local.git \
+  ~/.claude/skills/transcribe-media-local
 ```
 
-### Dependencies
+### 2. Install dependencies
 
 ```bash
 pip install openai-whisper
-```
 
-ffmpeg must be installed:
-
-```bash
 # macOS
 brew install ffmpeg
 
-# Linux
-apt install ffmpeg
+# Linux (Debian/Ubuntu)
+sudo apt install ffmpeg
 ```
 
-### Whisper model (one-time download)
+### 3. Download a Whisper model (one-time, ~500 MB for `small`)
 
-Download a model and place it in `~/.cache/whisper/`:
+```bash
+mkdir -p ~/.cache/whisper
+curl -L -o ~/.cache/whisper/small.pt \
+  https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt
+```
+
+Other models (pick one based on your needs):
 
 | Model | Size | Quality | Download |
 |-------|------|---------|----------|
@@ -97,6 +106,20 @@ transcribe-media-local/
 └── scripts/
     └── transcribe.py # CLI script
 ```
+
+## Troubleshooting
+
+**`whisper: command not found` or `ModuleNotFoundError: No module named 'whisper'`**
+Run `pip install openai-whisper`. If you use `pyenv`/`conda`, make sure it's the same Python that Claude Code's Bash tool sees (`python3 -c "import whisper"`).
+
+**`ffmpeg: command not found`**
+Install via `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux), then restart your terminal.
+
+**Script says "model not found"**
+Check that the `.pt` file is exactly in `~/.cache/whisper/` (not in a subfolder) and the filename matches the model name (e.g. `small.pt`, not `small-v3.pt`).
+
+**Claude doesn't pick up the skill**
+Restart Claude Code after copying the folder. Verify it's in the right place: `ls ~/.claude/skills/transcribe-media-local/SKILL.md`.
 
 ## License
 
