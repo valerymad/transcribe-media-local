@@ -49,6 +49,6 @@ python3 scripts/transcribe.py /absolute/path/to/file.mp4
 
 ## Notes
 
-- Model fallback: if the requested model is missing, the script tries smaller ones automatically.
-- If no model is installed, the script prints a download URL — show it to the user.
+- On first run with a model not yet cached, the script prints a "downloading" message and Whisper fetches it to `~/.cache/whisper/` automatically.
+- If automatic download fails (e.g. no network), the script prints the manual download URL — show it to the user.
 - If `whisper` or `ffmpeg` is missing, tell the user to install: `pip install openai-whisper` / `brew install ffmpeg`.

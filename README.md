@@ -31,7 +31,11 @@ brew install ffmpeg
 sudo apt install ffmpeg
 ```
 
-### 3. Download a Whisper model (one-time, ~500 MB for `small`)
+That's it. The Whisper model downloads automatically on first run (~462 MB for the default `small` model, cached to `~/.cache/whisper/`).
+
+### Manual model download (optional, e.g. for offline machines)
+
+If automatic download fails or you need to prepare an offline machine, download a model manually:
 
 ```bash
 mkdir -p ~/.cache/whisper
@@ -39,7 +43,7 @@ curl -L -o ~/.cache/whisper/small.pt \
   https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt
 ```
 
-Other models (pick one based on your needs):
+Available models:
 
 | Model | Size | Quality | Download |
 |-------|------|---------|----------|

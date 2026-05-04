@@ -25,6 +25,14 @@ MODEL_URLS = {
     "large":  "https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt",
 }
 
+MODEL_SIZES = {
+    "tiny":   "73 MB",
+    "base":   "142 MB",
+    "small":  "462 MB",
+    "medium": "1.5 GB",
+    "large":  "3 GB",
+}
+
 WHISPER_CACHE = os.path.expanduser("~/.cache/whisper")
 
 
@@ -59,22 +67,23 @@ def print_install_instructions(model_name: str):
 
 
 def load_model(preferred: str):
-    """Load model with fallback: preferred → small → base → tiny."""
-    chain = [preferred] + [m for m in ["small", "base", "tiny"] if m != preferred]
+    """Load model. If not cached, Whisper downloads it to ~/.cache/whisper/."""
     import whisper
-    for name in chain:
-        if check_model_available(name):
-            if name != preferred:
-                print(f"⚠️  Model '{preferred}' not found, using '{name}'")
-            print(f"⏳ Loading '{name}'...")
-            try:
-                model = whisper.load_model(name)
-                print(f"✅ Model '{name}' ready")
-                return model
-            except Exception as e:
-                print(f"⚠️  Error loading '{name}': {e}")
-    print_install_instructions(preferred)
-    sys.exit(1)
+
+    if not check_model_available(preferred):
+        size = MODEL_SIZES.get(preferred, "?")
+        print(f"⬇️  Model '{preferred}' not cached. Downloading (~{size}, one-time)...")
+        print(f"   Cache location: {WHISPER_CACHE}/")
+
+    print(f"⏳ Loading '{preferred}'...")
+    try:
+        model = whisper.load_model(preferred)
+        print(f"✅ Model '{preferred}' ready")
+        return model
+    except Exception as e:
+        print(f"❌ Failed to load model '{preferred}': {e}")
+        print_install_instructions(preferred)
+        sys.exit(1)
 
 
 def generate_txt(segments: list) -> str:
