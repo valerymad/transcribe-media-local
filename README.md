@@ -125,6 +125,10 @@ Check that the `.pt` file is exactly in `~/.cache/whisper/` (not in a subfolder)
 **Claude doesn't pick up the skill**
 Restart Claude Code after copying the folder. Verify it's in the right place: `ls ~/.claude/skills/transcribe-media-local/SKILL.md`.
 
+---
+
+Built by [@valerymad](https://github.com/valerymad). If this saved you time, a ⭐ helps others find it.
+
 ## License
 
 MIT
