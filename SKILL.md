@@ -6,7 +6,7 @@ license: MIT
 compatibility: Requires Python 3, ffmpeg, and openai-whisper. No network access needed after model download.
 metadata:
   author: valerymad
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Transcribe video/audio
@@ -30,15 +30,23 @@ python3 scripts/transcribe.py /absolute/path/to/file.mp4
 |----------|--------|---------|-------------|
 | `input` | file path | required | Video or audio file |
 | `--format` | `txt`, `srt`, `both` | `both` | Output format |
-| `--model` | `tiny`, `base`, `small`, `medium`, `large` | `small` | Whisper model size |
+| `--model` | `tiny`, `base`, `small`, `medium`, `large`, `turbo` | `turbo` | Whisper model |
 | `--language` | `ru`, `en`, `uk`... | auto | Language hint (omit for auto-detection) |
 | `--output` | directory path | same as input | Output directory |
+
+### Choosing a model
+
+`turbo` (large-v3-turbo) is the default — clearly the best transcription quality
+of the lineup, still faster than real time, ~1.6 GB download, ~5 GB RAM at runtime.
+Drop to `small` only when RAM is tight (~2.3 GB) or for quick rough drafts; it is
+noticeably weaker on noisy/quiet audio. `medium`/`large` are rarely worth it now —
+`turbo` matches or beats them for most languages at a fraction of the cost.
 
 ## Example output
 
 ```
-⏳ Loading 'small'...
-✅ Model 'small' ready
+⏳ Loading 'turbo'...
+✅ Model 'turbo' ready
 🎬 Transcribing: video.mp4
 🌐 Language: en | Segments: 12
 📄 TXT: /Users/user/video.txt

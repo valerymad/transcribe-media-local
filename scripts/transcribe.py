@@ -23,6 +23,7 @@ MODEL_URLS = {
     "small":  "https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt",
     "medium": "https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt",
     "large":  "https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt",
+    "turbo":  "https://openaipublic.azureedge.net/main/whisper/models/aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt",
 }
 
 MODEL_SIZES = {
@@ -31,6 +32,18 @@ MODEL_SIZES = {
     "small":  "462 MB",
     "medium": "1.5 GB",
     "large":  "3 GB",
+    "turbo":  "1.6 GB",
+}
+
+# Whisper caches each model under the URL's basename, which is not always
+# "{name}.pt" (e.g. "turbo" is stored as "large-v3-turbo.pt").
+MODEL_CACHE_STEM = {
+    "tiny":   "tiny",
+    "base":   "base",
+    "small":  "small",
+    "medium": "medium",
+    "large":  "large-v3",
+    "turbo":  "large-v3-turbo",
 }
 
 WHISPER_CACHE = os.path.expanduser("~/.cache/whisper")
@@ -53,7 +66,8 @@ def format_timestamp_srt(seconds: float) -> str:
 
 
 def check_model_available(model_name: str) -> bool:
-    model_path = os.path.join(WHISPER_CACHE, f"{model_name}.pt")
+    stem = MODEL_CACHE_STEM.get(model_name, model_name)
+    model_path = os.path.join(WHISPER_CACHE, f"{stem}.pt")
     return os.path.exists(model_path) and os.path.getsize(model_path) > 1_000_000
 
 
@@ -62,8 +76,9 @@ def print_install_instructions(model_name: str):
     print(f"\n❌ Model '{model_name}' not found.")
     print(f"\nDownload manually:")
     print(f"  {url}")
+    stem = MODEL_CACHE_STEM.get(model_name, model_name)
     print(f"\nPlace the file here:")
-    print(f"  {WHISPER_CACHE}/{model_name}.pt")
+    print(f"  {WHISPER_CACHE}/{stem}.pt")
 
 
 def load_model(preferred: str):
@@ -116,8 +131,8 @@ def main():
         help="Output format (default: both)"
     )
     parser.add_argument(
-        "--model", choices=["tiny", "base", "small", "medium", "large"], default="small",
-        help="Whisper model (default: small)"
+        "--model", choices=["tiny", "base", "small", "medium", "large", "turbo"], default="turbo",
+        help="Whisper model (default: turbo — best quality/speed balance; use 'small' for low RAM)"
     )
     parser.add_argument(
         "--language", default=None,

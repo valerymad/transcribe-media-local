@@ -31,7 +31,7 @@ brew install ffmpeg
 sudo apt install ffmpeg
 ```
 
-That's it. The Whisper model downloads automatically on first run (~462 MB for the default `small` model, cached to `~/.cache/whisper/`).
+That's it. The Whisper model downloads automatically on first run (~1.6 GB for the default `turbo` model, cached to `~/.cache/whisper/`). On a low-RAM machine, pass `--model small` (~462 MB) instead.
 
 ### Manual model download (optional, e.g. for offline machines)
 
@@ -39,18 +39,21 @@ If automatic download fails or you need to prepare an offline machine, download 
 
 ```bash
 mkdir -p ~/.cache/whisper
-curl -L -o ~/.cache/whisper/small.pt \
-  https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt
+curl -L -o ~/.cache/whisper/large-v3-turbo.pt \
+  https://openaipublic.azureedge.net/main/whisper/models/aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt
 ```
 
-Available models:
+Available models (note the cache filename differs from the `--model` name for `large`/`turbo`):
 
-| Model | Size | Quality | Download |
-|-------|------|---------|----------|
-| tiny | 73 MB | low | [tiny.pt](https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt) |
-| small | 462 MB | good | [small.pt](https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt) (recommended) |
-| medium | 1.5 GB | high | [medium.pt](https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt) |
-| large | 3 GB | best | [large-v3.pt](https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt) |
+| `--model` | Cache file | Download size | RAM at runtime | Quality | Download |
+|-----------|------------|---------------|----------------|---------|----------|
+| tiny | tiny.pt | 73 MB | ~0.4 GB | low | [tiny.pt](https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt) |
+| small | small.pt | 462 MB | ~2.3 GB | good (low-RAM pick) | [small.pt](https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt) |
+| medium | medium.pt | 1.5 GB | ~5 GB | high | [medium.pt](https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt) |
+| large | large-v3.pt | 3 GB | ~10 GB | very high | [large-v3.pt](https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt) |
+| **turbo** | large-v3-turbo.pt | 1.6 GB | ~5 GB | **best balance (default)** | [large-v3-turbo.pt](https://openaipublic.azureedge.net/main/whisper/models/aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt) |
+
+`turbo` (large-v3-turbo) is a pruned large-v3 with 4 decoder layers instead of 32 — near-large quality, far less compute. It is the default. Use `small` only when RAM is constrained.
 
 All model URLs: [openai/whisper](https://github.com/openai/whisper/blob/main/whisper/__init__.py)
 
@@ -120,7 +123,7 @@ Run `pip install openai-whisper`. If you use `pyenv`/`conda`, make sure it's the
 Install via `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux), then restart your terminal.
 
 **Script says "model not found"**
-Check that the `.pt` file is exactly in `~/.cache/whisper/` (not in a subfolder) and the filename matches the model name (e.g. `small.pt`, not `small-v3.pt`).
+Check that the `.pt` file is exactly in `~/.cache/whisper/` (not in a subfolder) and the filename matches Whisper's cache name. Most models use `{name}.pt` (`small.pt`, `medium.pt`), but `turbo` is cached as `large-v3-turbo.pt` and `large` as `large-v3.pt` — see the table above.
 
 **Claude doesn't pick up the skill**
 Restart Claude Code after copying the folder. Verify it's in the right place: `ls ~/.claude/skills/transcribe-media-local/SKILL.md`.
