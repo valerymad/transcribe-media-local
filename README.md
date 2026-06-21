@@ -33,6 +33,14 @@ sudo apt install ffmpeg
 
 That's it. The Whisper model downloads automatically on first run (~1.6 GB for the default `turbo` model, cached to `~/.cache/whisper/`). On a low-RAM machine, pass `--model small` (~462 MB) instead.
 
+## Updating
+
+```bash
+cd ~/.claude/skills/transcribe-media-local && git pull
+```
+
+No restart needed — the next skill invocation picks up the new version automatically.
+
 ### Manual model download (optional, e.g. for offline machines)
 
 If automatic download fails or you need to prepare an offline machine, download a model manually:
