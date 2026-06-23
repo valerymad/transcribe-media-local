@@ -2,13 +2,14 @@
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill for transcribing video and audio files using local [Whisper](https://github.com/openai/whisper).
 
-Works **fully offline** after one-time model download. Supports 100+ languages.
+Works **fully offline** after one-time model download. Supports 100+ languages. Cross-platform: runs on the Apple Silicon GPU via [MLX](https://github.com/ml-explore/mlx) when available, and falls back to openai-whisper (CPU/CUDA) everywhere else.
 
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 - Python 3.8+
 - ffmpeg
+- *(optional, Apple Silicon)* `mlx-whisper` for GPU acceleration
 
 ## Installation
 
@@ -31,7 +32,13 @@ brew install ffmpeg
 sudo apt install ffmpeg
 ```
 
-That's it. The Whisper model downloads automatically on first run (~1.6 GB for the default `turbo` model, cached to `~/.cache/whisper/`). On a low-RAM machine, pass `--model small` (~462 MB) instead.
+On **Apple Silicon** Macs, also install the GPU-accelerated backend — it's several times faster at the same quality:
+
+```bash
+pip install mlx-whisper
+```
+
+That's it. The Whisper model downloads automatically on first run (~1.6 GB for the default `turbo` model, cached to `~/.cache/whisper/`, or `~/.cache/huggingface/` for the MLX backend). On a low-RAM machine, pass `--model small` (~462 MB) instead.
 
 ## Updating
 
@@ -65,6 +72,21 @@ Available models (note the cache filename differs from the `--model` name for `l
 
 All model URLs: [openai/whisper](https://github.com/openai/whisper/blob/main/whisper/__init__.py)
 
+## Backends & speed
+
+The script picks an inference backend automatically:
+
+| Backend | When used | Hardware | Model cache |
+|---------|-----------|----------|-------------|
+| **mlx** | macOS (arm64) with `mlx-whisper` installed | Apple Silicon GPU | `~/.cache/huggingface/` (`mlx-community/...`) |
+| **openai** | everywhere else (Windows, Linux, Intel Mac, or no mlx-whisper) | CPU / CUDA | `~/.cache/whisper/` |
+
+Both produce **identical** TXT/SRT output — MLX is the same model, just faster. Rough throughput on an M2 with `turbo`: **mlx ≈ 8–10× real time, openai ≈ 3–4×**.
+
+Override with `--backend mlx` or `--backend openai` (e.g. to force reproducible output across machines).
+
+> The skill drops Whisper's `word_timestamps` pass — the TXT/SRT only use segment-level timing, and word-level alignment roughly triples runtime for data that's discarded.
+
 ## Usage with Claude Code
 
 Just ask Claude:
@@ -84,6 +106,9 @@ python scripts/transcribe.py video.mp4 --format srt
 
 # Specify language and model
 python scripts/transcribe.py video.mp4 --language ru --model medium
+
+# Force a backend (default: auto)
+python scripts/transcribe.py video.mp4 --backend openai
 
 # Custom output directory
 python scripts/transcribe.py video.mp4 --output ~/Desktop/

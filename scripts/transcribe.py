@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
 """
-Transcribe video/audio files using local Whisper model.
+Transcribe video/audio files using local Whisper.
 Outputs TXT with timecodes and/or SRT subtitles.
+
+Backends (auto-selected):
+  - mlx    : Apple Silicon GPU via mlx-whisper (fast). macOS arm64 only.
+  - openai : openai-whisper (PyTorch, CPU/CUDA). Cross-platform fallback.
 
 Usage:
     python transcribe.py input.mp4
     python transcribe.py input.mp4 --format srt
     python transcribe.py input.mp4 --format both --language ru
     python transcribe.py input.mp4 --model small --output /path/to/output
+    python transcribe.py input.mp4 --backend openai   # force PyTorch backend
 """
 
 import argparse
+import importlib.util
 import os
+import platform
 import sys
 from pathlib import Path
 
@@ -46,6 +53,16 @@ MODEL_CACHE_STEM = {
     "turbo":  "large-v3-turbo",
 }
 
+# Hugging Face repos for the MLX backend (mlx-community).
+MLX_REPOS = {
+    "tiny":   "mlx-community/whisper-tiny-mlx",
+    "base":   "mlx-community/whisper-base-mlx",
+    "small":  "mlx-community/whisper-small-mlx",
+    "medium": "mlx-community/whisper-medium-mlx",
+    "large":  "mlx-community/whisper-large-v3-mlx",
+    "turbo":  "mlx-community/whisper-large-v3-turbo",
+}
+
 WHISPER_CACHE = os.path.expanduser("~/.cache/whisper")
 
 
@@ -65,13 +82,42 @@ def format_timestamp_srt(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
+# ---------------------------------------------------------------------------
+# Backend selection
+# ---------------------------------------------------------------------------
+
+def mlx_available() -> bool:
+    """MLX runs only on Apple Silicon and requires the mlx-whisper package."""
+    if sys.platform != "darwin" or platform.machine() != "arm64":
+        return False
+    return importlib.util.find_spec("mlx_whisper") is not None
+
+
+def resolve_backend(forced: str) -> str:
+    """Return the effective backend: 'mlx' or 'openai'."""
+    if forced == "mlx":
+        if not mlx_available():
+            print("❌ --backend mlx requested but mlx-whisper is unavailable.")
+            print("   It needs macOS on Apple Silicon and: pip install mlx-whisper")
+            sys.exit(1)
+        return "mlx"
+    if forced == "openai":
+        return "openai"
+    # auto: prefer the fast GPU backend on Apple Silicon, else fall back
+    return "mlx" if mlx_available() else "openai"
+
+
+# ---------------------------------------------------------------------------
+# openai-whisper backend (PyTorch, CPU/CUDA — cross-platform)
+# ---------------------------------------------------------------------------
+
 def check_model_available(model_name: str) -> bool:
     stem = MODEL_CACHE_STEM.get(model_name, model_name)
     model_path = os.path.join(WHISPER_CACHE, f"{stem}.pt")
     return os.path.exists(model_path) and os.path.getsize(model_path) > 1_000_000
 
 
-def print_install_instructions(model_name: str):
+def print_openai_install_instructions(model_name: str):
     url = MODEL_URLS.get(model_name, MODEL_URLS["small"])
     print(f"\n❌ Model '{model_name}' not found.")
     print(f"\nDownload manually:")
@@ -81,25 +127,68 @@ def print_install_instructions(model_name: str):
     print(f"  {WHISPER_CACHE}/{stem}.pt")
 
 
-def load_model(preferred: str):
-    """Load model. If not cached, Whisper downloads it to ~/.cache/whisper/."""
-    import whisper
-
-    if not check_model_available(preferred):
-        size = MODEL_SIZES.get(preferred, "?")
-        print(f"⬇️  Model '{preferred}' not cached. Downloading (~{size}, one-time)...")
-        print(f"   Cache location: {WHISPER_CACHE}/")
-
-    print(f"⏳ Loading '{preferred}'...")
+def transcribe_openai(input_path: str, model_name: str, language):
+    """Transcribe via openai-whisper. Returns (segments, language)."""
     try:
-        model = whisper.load_model(preferred)
-        print(f"✅ Model '{preferred}' ready")
-        return model
-    except Exception as e:
-        print(f"❌ Failed to load model '{preferred}': {e}")
-        print_install_instructions(preferred)
+        import whisper
+    except ImportError:
+        print("❌ openai-whisper is not installed. Install it with: pip install openai-whisper")
         sys.exit(1)
 
+    if not check_model_available(model_name):
+        size = MODEL_SIZES.get(model_name, "?")
+        print(f"⬇️  Model '{model_name}' not cached. Downloading (~{size}, one-time)...")
+        print(f"   Cache location: {WHISPER_CACHE}/")
+
+    print(f"⏳ Loading '{model_name}' (openai-whisper)...")
+    try:
+        model = whisper.load_model(model_name)
+    except Exception as e:
+        print(f"❌ Failed to load model '{model_name}': {e}")
+        print_openai_install_instructions(model_name)
+        sys.exit(1)
+    print(f"✅ Model '{model_name}' ready")
+
+    # NOTE: no word_timestamps — TXT/SRT only use segment-level start/end,
+    # and word-level alignment roughly triples runtime for data we discard.
+    kwargs = {"verbose": False}
+    if language:
+        kwargs["language"] = language
+
+    print(f"🎬 Transcribing: {Path(input_path).name}")
+    result = model.transcribe(input_path, **kwargs)
+    return result["segments"], result.get("language", "?")
+
+
+# ---------------------------------------------------------------------------
+# MLX backend (Apple Silicon GPU)
+# ---------------------------------------------------------------------------
+
+def transcribe_mlx(input_path: str, model_name: str, language):
+    """Transcribe via mlx-whisper. Returns (segments, language)."""
+    import mlx_whisper
+
+    repo = MLX_REPOS.get(model_name, MLX_REPOS["turbo"])
+    print(f"⏳ Loading '{model_name}' via MLX ({repo})...")
+    print(f"   (first run downloads the model from Hugging Face to ~/.cache/huggingface)")
+
+    kwargs = {"path_or_hf_repo": repo}
+    if language:
+        kwargs["language"] = language
+
+    print(f"🎬 Transcribing: {Path(input_path).name}")
+    try:
+        result = mlx_whisper.transcribe(input_path, **kwargs)
+    except Exception as e:
+        print(f"❌ MLX transcription failed: {e}")
+        print("   Tip: retry with --backend openai to use the PyTorch backend.")
+        sys.exit(1)
+    return result["segments"], result.get("language", "?")
+
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
 
 def generate_txt(segments: list) -> str:
     lines = []
@@ -135,6 +224,10 @@ def main():
         help="Whisper model (default: turbo — best quality/speed balance; use 'small' for low RAM)"
     )
     parser.add_argument(
+        "--backend", choices=["auto", "mlx", "openai"], default="auto",
+        help="Inference backend (default: auto — mlx on Apple Silicon, else openai-whisper)"
+    )
+    parser.add_argument(
         "--language", default=None,
         help="Language: ru, en, uk, etc. (default: auto-detect)"
     )
@@ -152,16 +245,14 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = Path(args.input).stem
 
-    model = load_model(args.model)
+    backend = resolve_backend(args.backend)
+    print(f"🧠 Backend: {backend}")
 
-    print(f"🎬 Transcribing: {Path(args.input).name}")
-    kwargs = {"word_timestamps": True, "verbose": False}
-    if args.language:
-        kwargs["language"] = args.language
+    if backend == "mlx":
+        segments, lang = transcribe_mlx(args.input, args.model, args.language)
+    else:
+        segments, lang = transcribe_openai(args.input, args.model, args.language)
 
-    result = model.transcribe(args.input, **kwargs)
-    segments = result["segments"]
-    lang = result.get("language", "?")
     print(f"🌐 Language: {lang} | Segments: {len(segments)}")
 
     saved = []
